@@ -4,6 +4,27 @@ import numpy as np
 from sensor_msgs.msg import LaserScan
 from math import atan2, asin
 
+def calculate_displacement(pose1, pose2):
+    # Calculate displacement in x and y
+    delta_x = pose2.pose.pose.position.x - pose1.pose.pose.position.x
+    delta_y = pose2.pose.pose.position.y - pose1.pose.pose.position.y
+
+    # Convert quaternions to Euler angles
+    orientation1 = pose1.pose.pose.orientation
+    
+    orientation2 = pose2.pose.pose.orientation
+    
+    yaw1 = euler_from_quaternion(orientation1)
+    yaw2 = euler_from_quaternion(orientation2)
+
+    # Calculate displacement in theta (yaw angle)
+    delta_theta = yaw2 - yaw1
+
+    # Normalize delta_theta to be between -pi and pi
+    delta_theta = (delta_theta + np.pi) % (2 * np.pi) - np.pi
+
+    return delta_x, delta_y, delta_theta
+
 
 def euler_from_quaternion(quat):
     """

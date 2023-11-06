@@ -9,6 +9,7 @@ from sensor_msgs.msg import LaserScan
 from mapUtilities import mapManipulator
 import message_filters
 import numpy as np
+from utilities import *
 
 from rclpy.duration import Duration
 
@@ -18,7 +19,7 @@ from std_msgs.msg import ColorRGBA
 
 class particleFilter(Node):
 
-    def __init__(self, mapFilename="map.yaml", numParticles=1000):
+    def __init__(self, mapFilename="map.yaml", numParticles=100):
         
         super().__init__("particleFiltering")
 
@@ -30,7 +31,7 @@ class particleFilter(Node):
 
 
         self.particleMarkerArrayPublisher =\
-                self.create_publisher(MarkerArray, "/particles/markers", 10)
+                self.create_publisher(MarkerArray, "/particles/markers", 100)
         
 
         self.odomSub = message_filters.Subscriber(self, Odometry, "/odom", qos_profile=qos_profile_laserScanner)
@@ -42,6 +43,8 @@ class particleFilter(Node):
 
         #self.mapUtilities=mapManipulator(mapFilename)
 
+
+        self.historyOdom = []
         self.particles=[]
 
 
@@ -54,7 +57,7 @@ class particleFilter(Node):
                            np.random.uniform(low=[0, 0, -np.pi], high=[width, height, np.pi], size=(numParticles, 3))]
         
 
-
+        self.particles.append(particle([0,0,0], 1/numParticles))
     
     def visualizeParticles(self):
         
@@ -68,7 +71,7 @@ class particleFilter(Node):
 
             marker.id = i
             marker.ns = "particles"
-            marker.lifetime = Duration(seconds=0.1).to_msg()
+            marker.lifetime = Duration(seconds=0.5).to_msg()
 
             marker.type = marker.ARROW
             marker.action = marker.ADD
@@ -87,15 +90,35 @@ class particleFilter(Node):
         self.particleMarkerArrayPublisher.publish(particles)
 
     def filterCallback(self, odomMsg: Odometry, laserMsg: LaserScan):
-        
+        import time
+
+
+
+        self.historyOdom.append(odomMsg)
+
+        if len(self.historyOdom) > 2:
+            self.historyOdom.pop(0)
+
+        else:
+            return
+
+        dx, dy, dth = calculate_displacement(self.historyOdom[0], self.historyOdom[1])
+        w = odomMsg.twist.twist.angular.z
+        v = odomMsg.twist.twist.linear.x
+        start_timer = time.time()
 
         for particle_ in self.particles:
             
-            particle_.motion_model(odomMsg.twist.twist.linear.x, 
-                                   odomMsg.twist.twist.angular.z)
+            particle_.motion_model(dx, dy, dth, v, w)
         
 
         self.visualizeParticles()
+
+        end_time = time.time()
+
+
+
+        print(f"the time took for the filter callback is {end_time-start_timer}")
 
 import rclpy
 
