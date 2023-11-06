@@ -171,6 +171,8 @@ class mapManipulator(Node):
         
                 
         self.plot_pgm_image(likelihood_field_img)
+
+        self.likelihood_field = likelihood_field
         
         return likelihood_field
                 

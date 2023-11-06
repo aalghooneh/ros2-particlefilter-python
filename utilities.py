@@ -47,11 +47,11 @@ def euler_from_quaternion(quat):
     return yaw
 
 def position_2_cell(cartesianPoints: np.array, origin: np.array, res):
-    return (cartesianPoints - origin)/res
+    return np.array(np.floor((cartesianPoints - origin)/res), dtype=np.int32)
 
 
 def cell_2_position(cells, origin: np.array, res):
-    return np.floor(cells * res + origin)
+    return cells * res + origin
 
 
 def convertScanToCartesian(laserScan: LaserScan):
@@ -62,7 +62,7 @@ def convertScanToCartesian(laserScan: LaserScan):
     range_max = laserScan.range_max
     ranges = np.array(laserScan.ranges)
 
-    valid_indices = np.where((ranges != 0) & (ranges <= range_max)) & (ranges >= range_min)
+    valid_indices = np.where((ranges != 0) & (ranges <= range_max) & (ranges >= range_min)) 
     valid_ranges = ranges[valid_indices]
 
     angles = angle_min + valid_indices[0] * angle_increment
