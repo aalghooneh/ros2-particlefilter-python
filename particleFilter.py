@@ -16,10 +16,14 @@ from rclpy.duration import Duration
 from visualization_msgs.msg import Marker, MarkerArray
 from geometry_msgs.msg import Point
 from std_msgs.msg import ColorRGBA
+from nav_msgs.msg import OccupancyGrid
+
+
+
 
 class particleFilter(Node):
 
-    def __init__(self, mapFilename="/home/dastan/final/maps/room.yaml", numParticles=100):
+    def __init__(self, mapFilename="/home/dastan/final/maps/room.yaml", numParticles=1000):
         
         super().__init__("particleFiltering")
 
@@ -40,8 +44,9 @@ class particleFilter(Node):
         self.timeSynchronizer = message_filters.ApproximateTimeSynchronizer([self.odomSub, self.laserScanSub], queue_size=10, slop=0.1)
         self.timeSynchronizer.registerCallback(self.filterCallback)
 
-
-        self.mapUtilities=mapManipulator(mapFilename)
+        self.publisher = self.create_publisher(OccupancyGrid, '/likelihood_map', 10)
+        
+        self.mapUtilities=mapManipulator(mapFilename, laser_sig=0.2)
         self.mapUtilities.make_likelihood_field()
 
 
@@ -52,10 +57,12 @@ class particleFilter(Node):
         width = -3
         height = -1
 
+        self.br = TransformBroadcaster(self)
 
-
+        self.particlePoses=np.random.uniform(low=[3, 1.5, -np.pi], high=[5.0, 2.0, np.pi], size=(numParticles, 3))
+        
         self.particles = [particle(particle_, 1/numParticles) for particle_ in\
-                           np.random.uniform(low=[0, -2, -np.pi], high=[2.0, 0.0, np.pi], size=(numParticles, 3))]
+                           self.particlePoses]
         
 
         self.weights = [1/numParticles] * numParticles
@@ -72,13 +79,14 @@ class particleFilter(Node):
 
             marker.id = i
             marker.ns = "particles"
-            marker.lifetime = Duration(seconds=0.5).to_msg()
+            marker.lifetime = Duration(seconds=1.5).to_msg()
 
             marker.type = marker.ARROW
             marker.action = marker.ADD
 
-            if particle_.getWeight() <= 0.25:
-                weight = 0.25
+            weight = particle_.getWeight()
+            if weight <= 0.10:
+                weight = 0.1
 
             marker.scale.x=weight
             marker.scale.y = 0.1; marker.scale.z = 0.1
@@ -127,17 +135,28 @@ class particleFilter(Node):
         w = odomMsg.twist.twist.angular.z
         v = odomMsg.twist.twist.linear.x
 
+        
         for i, particle_ in enumerate(self.particles):
             particle_.motion_model(dx, dy, dth, v, w)
             particle_.calculateParticleWeight(laserMsg, self.mapUtilities)
+            
             #print(f"particle at {particle_.getPose()} has weight of {particle_.getWeight()}")
-            try:
-                self.weights[i] = particle_.getWeight()
-            except IndexError:
-                print(f"tried {i} while {len(self.weights)}, and {len(self.particles)}")
+            
+            
+            self.weights[i] = particle_.getWeight()
 
-        
 
+
+        weighted_average_translation = np.average(self.particlePoses[:, :2], axis=0, weights=self.weights)
+
+        # For the rotation (theta), you might use a mean of circular quantities if the angles are small and don't wrap around
+        mean_angle = np.arctan2(np.sum(np.sin(self.particlePoses[:, 2])*self.weights), np.sum(np.cos(self.particlePoses[:, 2])*self.weights))
+
+        weighted_average_pose = np.append(weighted_average_translation, mean_angle)
+
+        publishTransform(self.br, weighted_average_pose[0], weighted_average_pose[1], weighted_average_pose[2], self.get_clock().now().to_msg())
+
+        self.publisher.publish(self.mapUtilities.to_message())
         self.normalizeWeights()
         self.visualizeParticles()
 

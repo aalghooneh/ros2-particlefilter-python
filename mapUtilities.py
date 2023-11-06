@@ -16,7 +16,7 @@ from utilities import *
 class mapManipulator(Node):
 
 
-    def __init__(self, filename_: str, laser_sig=0.1):
+    def __init__(self, filename_: str, laser_sig=0.4):
         
         
         super().__init__('likelihood_field')
@@ -191,12 +191,30 @@ class mapManipulator(Node):
     
     def to_message(self):
         """ Return a nav_msgs/OccupancyGrid representation of this map. """
-        grid_msg = OccupancyGrid()
-        grid_msg.header.stamp = self.get_clock().now()
-        grid_msg.header.frame_id = "map"
+        grid = OccupancyGrid()
+        grid.header.stamp = self.get_clock().now().to_msg()
+        grid.header.frame_id = "map"
 
-        grid_msg.data = self._numpy_to_data()
-        return grid_msg
+        likelihoodField = self.getLikelihoodField()
+
+        grid.info.resolution = self.getResolution()  # Set the resolution (m/cell)
+        grid.info.width = likelihoodField.shape[1]
+        grid.info.height = likelihoodField.shape[0]
+        grid.info.origin = Pose()  # Set the origin of the map (geometry_msgs/Pose)
+        grid.info.origin.position.x, grid.info.origin.position.y = self.getOrigin()
+        # Flatten the likelihood field and scale it to [0, 100], set unknown as -1
+        
+        normalized_likelihood = np.clip(likelihoodField * 100, 0, 100)
+        
+        # Convert to integers and ensure values are within the range [-128, 127]
+        # In ROS, 0 means unknown, so we remap our values from [0, 100] to [1, 101]
+        # and then subtract 1 to have [0, 100] for the message
+        
+        grid.data = [int(value) for value in normalized_likelihood.flatten()]
+        grid.data = list(grid.data)
+
+
+        return grid
     
     
     def calculate_score(self,x,y):

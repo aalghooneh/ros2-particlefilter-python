@@ -38,14 +38,11 @@ class particle:
             np.logical_and(cellPositions[:,0] < lm_x , cellPositions[:,1] < lm_y), :
         ]
 
-        weight = np.prod(likelihoodField[np.ix_(cellPositions[:,0], cellPositions[:,1])].reshape(-1,))
-        weight+=0.001
-        
+        log_weights = np.log(likelihoodField[cellPositions[:, 0], cellPositions[:, 1]])
+        log_weight = np.sum(log_weights)
+        weight = np.exp(log_weight)
+        weight+=1.e-300
 
-        plt.plot(-mapManipulatorInstance.occ_points[:,0], mapManipulatorInstance.occ_points[:,1],'.')
-        plt.plot(self.getPose()[0], self.getPose()[1], '*')
-        plt.plot(scanInMap[:,0], scanInMap[:,1],'.')
-        #plt.show()
         self.setWeight(weight)
 
         return weight
