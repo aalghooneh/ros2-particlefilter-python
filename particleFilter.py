@@ -23,7 +23,7 @@ from nav_msgs.msg import OccupancyGrid
 
 class particleFilter(Node):
 
-    def __init__(self, mapFilename="/home/dastan/final/maps/room.yaml", numParticles=10):
+    def __init__(self, mapFilename="/home/dastan/final/maps/room.yaml", numParticles=1000):
         
         super().__init__("particleFiltering")
 
@@ -160,7 +160,7 @@ class particleFilter(Node):
         self.normalizeWeights()
 
         print(self.particles[np.argmax(self.weights)].getPose())
-        self.visualizeParticles(self.particles, stamp)
+        self.visualizeParticles(self.resample(), stamp)
 
 
         #self.resample()

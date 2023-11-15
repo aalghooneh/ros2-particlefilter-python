@@ -47,7 +47,7 @@ class particle:
         lm_x, lm_y = likelihoodField.shape
 
         cellPositions = cellPositions[
-            np.logical_and(cellPositions[:,0] < lm_x , -cellPositions[:,1] < lm_y), :
+            np.logical_and(cellPositions[:,0] < lm_y , -cellPositions[:,1] < lm_x), :
         ]
 
         log_weights = np.log(likelihoodField[-cellPositions[:, 1], cellPositions[:, 0]])
