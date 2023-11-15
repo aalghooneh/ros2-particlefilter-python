@@ -113,10 +113,10 @@ class particleFilter(Node):
 
 
     def resample(self):
-        numParticles = len(self.particles)
-        indices = np.random.choice(range(numParticles),  size=50, p=self.weights)
+        particles_sorted = sorted(self.particles.copy(), key=lambda particle: particle.getWeight(), reverse=True)
 
-        return [self.particles[i] for i in indices]
+        
+        return particles_sorted[:50]
 
     def filterCallback(self, odomMsg: Odometry, laserMsg: LaserScan):
         import time
