@@ -40,6 +40,10 @@ class mapManipulator(Node):
         
 
         width, height, max_value, pixels = self.read_pgm(filenamePGM)
+
+
+        self.width = width
+        self.height = height
         
         
         
@@ -50,7 +54,7 @@ class mapManipulator(Node):
         self.laser_sig=laser_sig
         
         self.likelihood_msg=None
-        
+
         
         
     def getLikelihoodField(self):
@@ -135,12 +139,14 @@ class mapManipulator(Node):
     def getResolution(self):
         return self.res
     
-    def cell_2_position(self, i,j):
-        return i*self.res + self.o_x, j*self.res + self.o_y
+    def cell_2_position(self, pix):
+        i,j = pix
+        return self.o_x - i*self.getResolution(),  self.o_y - (self.height - j) * self.getResolution()
     
     
-    def position_2_cell(self, x,y):
-        return floor( (x- self.o_x )/self.res), floor( (y-self.o_y)/self.res)
+    def position_2_cell(self, pos):
+        x,y = pos
+        return floor( (x- self.o_x )/self.getResolution()), floor( self.height + (y-self.o_y)/self.getResolution())
 
 
     def make_likelihood_field(self):
@@ -153,8 +159,8 @@ class mapManipulator(Node):
         self.plot_pgm_image(image_array)
         indices = np.where(image_array < 10)
         
-        occupied_points = [self.cell_2_position(i, j) for i, j in zip(indices[0], indices[1])]
-        all_positions = [self.cell_2_position(i, j) for i in range(image_array.shape[0]) for j in range(image_array.shape[1])]
+        occupied_points = [self.cell_2_position([i, j]) for i, j in zip(indices[0], indices[1])]
+        all_positions = [self.cell_2_position([i, j]) for i in range(image_array.shape[0]) for j in range(image_array.shape[1])]
 
         kdt=KDTree(occupied_points)
 
@@ -170,7 +176,7 @@ class mapManipulator(Node):
         self.occ_points=np.array(occupied_points)
         
                 
-        self.plot_pgm_image(likelihood_field_img)
+        #self.plot_pgm_image(likelihood_field_img)
 
         self.likelihood_field = likelihood_field
         
@@ -198,13 +204,28 @@ class mapManipulator(Node):
         likelihoodField = self.getLikelihoodField()
 
         grid.info.resolution = self.getResolution()  # Set the resolution (m/cell)
-        grid.info.width = likelihoodField.shape[1]
-        grid.info.height = likelihoodField.shape[0]
+        grid.info.width = self.height
+        grid.info.height = self.width
         grid.info.origin = Pose()  # Set the origin of the map (geometry_msgs/Pose)
-        grid.info.origin.position.x, grid.info.origin.position.y = self.getOrigin()
+        
+        gridOrigin = self.cell_2_position([0, self.height])
+        
+
+        grid.info.origin.orientation.w = np.cos(-np.pi/4)
+        grid.info.origin.orientation.z = np.sin(-np.pi/4)
+        offset = -self.height*self.getResolution()
+        print( offset )
+        print(self.getOrigin()[1])
+
+
+        grid.info.origin.position.x, grid.info.origin.position.y = self.getOrigin()[0], +self.getOrigin()[1] - offset
+
+
+        #grid.info.origin.orientation.w = np.cos(np.pi/2)
+        #grid.info.origin.orientation.z = np.sin(np.pi/2)
         # Flatten the likelihood field and scale it to [0, 100], set unknown as -1
         
-        normalized_likelihood = np.clip(likelihoodField * 100, 0, 100)
+        normalized_likelihood = np.clip(likelihoodField.T * 100, 0, 100)
         
         # Convert to integers and ensure values are within the range [-128, 127]
         # In ROS, 0 means unknown, so we remap our values from [0, 100] to [1, 101]
@@ -329,15 +350,15 @@ if __name__=="__main__":
     rclpy.init()
 
     parser=argparse.ArgumentParser()
-    parser.add_argument('--map', type=str, help='the absolute path to argument')
-    parser.add_argument('--std', type=float, help='the std', default=0.1)
+    parser.add_argument('--map', type=str, default="./your_map/room.yaml", help='the absolute path to argument')
+    parser.add_argument('--std', type=float, help='the std', default=0.01)
 
 
     args = parser.parse_args()
 
     MAP_UTILITIS=mapManipulator(args.map, args.std)
 
-    rclpy.spin(MAP_UTILITIS)
+    #rclpy.spin(MAP_UTILITIS)
 
 
 # Usage example

@@ -36,7 +36,7 @@ def publishTransform(br, x,y,th, stamp):
     t=TransformStamped()
 
     t.header.frame_id = "map"
-    t.child_frame_id="base_link"
+    t.child_frame_id="base_scan"
 
     t.header.stamp = stamp
 
@@ -52,6 +52,7 @@ def publishTransform(br, x,y,th, stamp):
 
 def quaternion_from_euler(th):
     qt = Quaternion()
+    th = th
     qt.z=np.sin(th/2)
     qt.w=np.cos(th/2)
     return qt
@@ -75,12 +76,12 @@ def euler_from_quaternion(quat):
     # just unpack yaw for tb
     return yaw
 
-def position_2_cell(cartesianPoints: np.array, origin: np.array, res):
-    return np.array(np.floor((cartesianPoints - origin)/res), dtype=np.int32)
+def position_2_cell(cartesianPoints: np.array, origin: np.array, res, h):
+    return (np.array(np.floor((-origin + cartesianPoints)/res), dtype=np.int32)) - np.array([0, h]) 
 
 
-def cell_2_position(cells, origin: np.array, res):
-    return cells * res + origin
+def cell_2_position(cells, origin: np.array, res, h):
+    return cells * res + origin + np.array([0, -h*res])
 
 
 def convertScanToCartesian(laserScan: LaserScan):

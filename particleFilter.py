@@ -23,7 +23,7 @@ from nav_msgs.msg import OccupancyGrid
 
 class particleFilter(Node):
 
-    def __init__(self, mapFilename="/home/dastan/final/maps/room.yaml", numParticles=1000):
+    def __init__(self, mapFilename="/home/dastan/final/maps/room.yaml", numParticles=10):
         
         super().__init__("particleFiltering")
 
@@ -35,7 +35,7 @@ class particleFilter(Node):
 
 
         self.particleMarkerArrayPublisher =\
-                self.create_publisher(MarkerArray, "/particles/markers", 100)
+                self.create_publisher(MarkerArray, "/particles/markers", 10)
         
 
         self.odomSub = message_filters.Subscriber(self, Odometry, "/odom", qos_profile=qos_profile_laserScanner)
@@ -59,7 +59,7 @@ class particleFilter(Node):
 
         self.br = TransformBroadcaster(self)
 
-        self.particlePoses=np.random.uniform(low=[3, 1.5, -np.pi], high=[5.0, 2.0, np.pi], size=(numParticles, 3))
+        self.particlePoses=np.random.uniform(low=[-3, -1.0, - 0.3], high=[-1.5, 0.0, + 0.3], size=(numParticles, 3))
         
         self.particles = [particle(particle_, 1/numParticles) for particle_ in\
                            self.particlePoses]
@@ -67,15 +67,15 @@ class particleFilter(Node):
 
         self.weights = [1/numParticles] * numParticles
     
-    def visualizeParticles(self):
+    def visualizeParticles(self, particles_, stamp):
         
         particles=MarkerArray()
         
-        for i, particle_ in enumerate(self.particles):
+        for i, particle_ in enumerate(particles_):
             
             marker = Marker()
             marker.header.frame_id = "map"
-            marker.header.stamp = self.get_clock().now().to_msg()
+            marker.header.stamp = stamp
 
             marker.id = i
             marker.ns = "particles"
@@ -89,7 +89,7 @@ class particleFilter(Node):
                 weight = 0.1
 
             marker.scale.x=weight
-            marker.scale.y = 0.1; marker.scale.z = 0.1
+            marker.scale.y = 0.05; marker.scale.z = 0.05
 
             marker.color = ColorRGBA(r=1.0, g=0.0, b=0.0, a=1.0)
             marker.pose.position.x = particle_.getPose()[0]
@@ -114,9 +114,9 @@ class particleFilter(Node):
 
     def resample(self):
         numParticles = len(self.particles)
-        indices = np.random.choice(range(numParticles),  size=100, p=self.weights)
+        indices = np.random.choice(range(numParticles),  size=50, p=self.weights)
 
-        self.particles = [self.particles[i] for i in indices]
+        return [self.particles[i] for i in indices]
 
     def filterCallback(self, odomMsg: Odometry, laserMsg: LaserScan):
         import time
@@ -153,12 +153,14 @@ class particleFilter(Node):
         mean_angle = np.arctan2(np.sum(np.sin(self.particlePoses[:, 2])*self.weights), np.sum(np.cos(self.particlePoses[:, 2])*self.weights))
 
         weighted_average_pose = np.append(weighted_average_translation, mean_angle)
-
-        publishTransform(self.br, weighted_average_pose[0], weighted_average_pose[1], weighted_average_pose[2], self.get_clock().now().to_msg())
+        stamp = odomMsg.header.stamp
+        publishTransform(self.br, weighted_average_pose[0], weighted_average_pose[1], weighted_average_pose[2] -np.pi/2, stamp)
 
         self.publisher.publish(self.mapUtilities.to_message())
         self.normalizeWeights()
-        self.visualizeParticles()
+
+        print(self.particles[np.argmax(self.weights)].getPose())
+        self.visualizeParticles(self.particles, stamp)
 
 
         #self.resample()
