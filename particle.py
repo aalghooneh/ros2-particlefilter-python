@@ -36,14 +36,6 @@ class particle:
         cellPositions = position_2_cell(scanInMap[:,0:2], origin, res, h)
         cellParticle  = position_2_cell(self.getPose()[0:2], origin, res, h)
 
-
-        #print(f"w, h {w}, {h}")
-        #plt.imshow(likelihoodField, cmap='gray')
-        #plt.plot(cellPositions[:,0], -cellPositions[:,1], '.')
-        #plt.plot(cellOrigin[0], -cellOrigin[1], '*')
-        #plt.plot(cellParticle[0], -cellParticle[1 ], 'o')
-        #plt.show()
-
         lm_x, lm_y = likelihoodField.shape
 
         cellPositions = cellPositions[
