@@ -56,8 +56,7 @@ class particle:
         weight+=1.e-300
 
         self.setWeight(weight)
-        #print(weight)
-        return weight
+
     
     def setWeight(self, weight):
         self.weight = weight
