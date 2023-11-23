@@ -9,6 +9,10 @@ from sensor_msgs.msg import LaserScan
 from mapUtilities import mapManipulator
 import message_filters
 import numpy as np
+
+import time
+
+
 from utilities import *
 
 from rclpy.duration import Duration
@@ -142,7 +146,7 @@ class particleFilter(Node):
         return particles_sorted[:50]
 
     def filterCallback(self, odomMsg: Odometry, laserMsg: LaserScan):
-        import time
+
         start_timer = time.time()
 
 
